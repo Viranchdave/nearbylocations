@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Banswara Tourist Map - Nearby Attractions</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: sans-serif;
+    }
+    #map {
+      height: 100%;
+    }
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .control-panel select,
+    .control-panel input {
+      margin: 5px 0;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="control-panel">
+  <label for="radius">Nearby Radius:</label>
+  <select id="radius">
+    <option value="5000">5 km</option>
+    <option value="10000" selected>10 km</option>
+  </select>
+
+  <label for="category">Category:</label>
+  <select id="category">
+    <option value="all">All</option>
+    <option value="nature">Nature</option>
+    <option value="historical">Historical</option>
+    <option value="religious">Religious</option>
+  </select>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const locations = [
+  {
+    "name": "Chachakota",
+    "lat": 23.57044167,
+    "lng": 74.53465278,
+    "category": "nature",
+    "image": "https://tinypic.host/images/2025/05/08/20210828_115723-min.jpg",
+    "description": "These are beautiful river islands carved by the flowing Mahi river.",
+    "moreInfo": "https://en.wikipedia.org/wiki/Anand_Sagar_Lake"
+  },
+  {
+    "name": "Nandini Mata Temple",
+    "lat": 23.41213889,
+    "lng": 74.33668611,
+    "category": "nature",
+    "image": "https://tinypic.host/images/2025/05/09/IMG_20241015_121758-min.jpg",
+    "description": "Located at an elevation of 1300 feet, known as 'Pavagadh of Vagad'.",
+    "moreInfo": "https://en.wikipedia.org/wiki/Anand_Sagar_Lake"
+  }
+];
+
+  const map = L.map('map').setView([23.5469, 74.4659], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const radiusSelect = document.getElementById('radius');
+  const categorySelect = document.getElementById('category');
+
+  let userMarker = null;
+  let locationMarkers = [];
+
+  function getDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371000; // radius of Earth in meters
+    const toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLng / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function renderLocations(userLat, userLng) {
+    // Clear old markers
+    locationMarkers.forEach(m => map.removeLayer(m));
+    locationMarkers = [];
+
+    const maxDistance = parseInt(radiusSelect.value);
+    const selectedCategory = categorySelect.value;
+
+    locations.forEach(loc => {
+      const dist = getDistance(userLat, userLng, loc.lat, loc.lng);
+      const matchCategory = selectedCategory === 'all' || loc.category === selectedCategory;
+      if (dist <= maxDistance && matchCategory) {
+        const marker = L.marker([loc.lat, loc.lng]).addTo(map);
+        marker.bindPopup(`
+          <strong>${loc.name}</strong><br/>
+          <img src="${loc.image}" alt="${loc.name}" width="200"/><br/>
+          <small>${loc.description}</small><br/>
+          <a href="${loc.moreInfo}" target="_blank">More Info</a>
+        `);
+        locationMarkers.push(marker);
+      }
+    });
+  }
+
+  function locateAndRender() {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      if (userMarker) map.removeLayer(userMarker);
+      userMarker = L.marker([lat, lng], { icon: L.icon({
+        iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+        iconSize: [30, 30],
+        iconAnchor: [15, 30]
+      })}).addTo(map).bindPopup("You are here").openPopup();
+      map.setView([lat, lng], 13);
+      renderLocations(lat, lng);
+    }, () => {
+      alert("Unable to retrieve your location.");
+    });
+  }
+
+  radiusSelect.addEventListener('change', locateAndRender);
+  categorySelect.addEventListener('change', locateAndRender);
+
+  // Initial call
+  locateAndRender();
+</script>
+</body>
+</html>
